@@ -1,0 +1,7 @@
+- Can add a birthday to the calendar
+- Can add details of person and suggestions
+- App send reminder to user before the birthday with gift suggestions
+- Get by id in api when showing sidebar
+- Different birthdays same day
+- Login and Register
+- Pricing
