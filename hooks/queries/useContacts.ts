@@ -7,6 +7,7 @@ export type Contact = {
     birthdayYear?: number;
     birthdayMonth: number;
     birthdayDay: number;
+    notes?: string | null;
 };
 
 export const useContacts = () => {

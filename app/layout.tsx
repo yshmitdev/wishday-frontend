@@ -12,7 +12,7 @@ import {
 import { UserSync } from "./UserSync";
 import Providers from "./providers";
 
-import Header from "./components/Header";
+import Header from "../components/Header";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

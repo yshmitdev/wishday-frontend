@@ -1,17 +1,43 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
+    Dialog, DialogContent, DialogHeader, DialogTitle,
+    DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Contact } from '@/hooks/queries/useContacts';
 import { useCreateContact, useUpdateContact, useDeleteContact } from '@/hooks/mutations/useContactMutations';
+import { UserPlus, Pencil, AlertTriangle, Cake, User, StickyNote } from 'lucide-react';
+import { getMaxDays } from '@/lib/dateUtils';
+
+const MONTHS = Array.from({ length: 12 }, (_, i) => ({
+    value: i + 1,
+    label: new Date(2000, i).toLocaleString('default', { month: 'short' }),
+}));
+
+const contactSchema = z.object({
+    name: z.string().min(1, 'Name is required').max(100),
+    month: z.number().min(1).max(12),
+    day: z.number().min(1).max(31),
+    year: z.string().refine(
+        v => !v || (/^\d{4}$/.test(v) && +v >= 1900 && +v <= new Date().getFullYear()),
+        'Invalid year'
+    ),
+    notes: z.string().max(500),
+}).refine(
+    d => d.day >= 1 && d.day <= getMaxDays(d.month, d.year ? +d.year : undefined),
+    { message: 'Invalid date - this day does not exist for the selected month', path: ['day'] }
+);
+
+type FormData = z.infer<typeof contactSchema>;
 
 interface ContactDialogsProps {
     contact: Contact | null;
@@ -26,222 +52,246 @@ interface ContactDialogsProps {
     onSuccess?: () => void;
 }
 
+const DIALOG_STYLES = {
+    create: {
+        color: 'emerald', accent: 'teal', Icon: UserPlus,
+        title: 'Add Birthday', desc: 'Remember someone special',
+        btn: 'Add Birthday', loading: 'Adding...',
+    },
+    edit: {
+        color: 'violet', accent: 'purple', Icon: Pencil,
+        title: 'Edit Birthday', btn: 'Save Changes', loading: 'Saving...',
+    },
+} as const;
+
 export function ContactDialogs({
-    contact,
-    editOpen,
-    deleteOpen,
-    createOpen,
-    defaultMonth = 1,
-    defaultDay = 1,
-    onEditOpenChange,
-    onDeleteOpenChange,
-    onCreateOpenChange,
-    onSuccess,
+    contact, editOpen, deleteOpen, createOpen,
+    defaultMonth = 1, defaultDay = 1,
+    onEditOpenChange, onDeleteOpenChange, onCreateOpenChange, onSuccess,
 }: ContactDialogsProps) {
-    const createContact = useCreateContact();
-    const updateContact = useUpdateContact();
-    const deleteContact = useDeleteContact();
+    const createMutation = useCreateContact();
+    const updateMutation = useUpdateContact();
+    const deleteMutation = useDeleteContact();
 
-    const [name, setName] = useState('');
-    const [month, setMonth] = useState(1);
-    const [day, setDay] = useState(1);
-    const [year, setYear] = useState<string>('');
+    const form = useForm<FormData>({
+        resolver: zodResolver(contactSchema),
+        defaultValues: { name: '', month: 1, day: 1, year: '', notes: '' },
+    });
 
-    // Reset form when contact changes or edit dialog opens
+    const [watchedMonth, watchedYear, watchedDay] = form.watch(['month', 'year', 'day']);
+    const maxDays = getMaxDays(watchedMonth, watchedYear ? +watchedYear : undefined);
+
+    useEffect(() => {
+        if (watchedDay > maxDays) form.setValue('day', maxDays);
+    }, [watchedMonth, watchedYear, watchedDay, maxDays, form]);
+
+    useEffect(() => {
+        if (createOpen) form.reset({ name: '', month: defaultMonth, day: defaultDay, year: '', notes: '' });
+    }, [createOpen, defaultMonth, defaultDay, form]);
+
     useEffect(() => {
         if (contact && editOpen) {
-            setName(contact.name);
-            setMonth(contact.birthdayMonth);
-            setDay(contact.birthdayDay);
-            setYear(contact.birthdayYear?.toString() || '');
+            form.reset({
+                name: contact.name,
+                month: contact.birthdayMonth,
+                day: contact.birthdayDay,
+                year: contact.birthdayYear?.toString() || '',
+                notes: contact.notes || '',
+            });
         }
-    }, [contact, editOpen]);
+    }, [contact, editOpen, form]);
 
-    // Reset form when create dialog opens with default date
-    useEffect(() => {
-        if (createOpen) {
-            setName('');
-            setMonth(defaultMonth);
-            setDay(defaultDay);
-            setYear('');
+    const toPayload = (d: FormData) => ({
+        name: d.name,
+        birthdayMonth: d.month,
+        birthdayDay: d.day,
+        birthdayYear: d.year ? +d.year : null,
+        notes: d.notes.trim() || null,
+    });
+
+    const handleSubmit = async (mode: 'create' | 'edit', data: FormData) => {
+        if (mode === 'create') {
+            await createMutation.mutateAsync(toPayload(data));
+            onCreateOpenChange(false);
+        } else if (contact) {
+            await updateMutation.mutateAsync({ id: contact.id, data: toPayload(data) });
+            onEditOpenChange(false);
         }
-    }, [createOpen, defaultMonth, defaultDay]);
-
-    const handleCreate = async () => {
-        if (!name.trim()) return;
-
-        await createContact.mutateAsync({
-            name,
-            birthdayMonth: month,
-            birthdayDay: day,
-            birthdayYear: year ? parseInt(year) : null,
-        });
-
-        onCreateOpenChange(false);
-        onSuccess?.();
-    };
-
-    const handleEdit = async () => {
-        if (!contact) return;
-
-        await updateContact.mutateAsync({
-            id: contact.id,
-            data: {
-                name,
-                birthdayMonth: month,
-                birthdayDay: day,
-                birthdayYear: year ? parseInt(year) : null,
-            },
-        });
-
-        onEditOpenChange(false);
         onSuccess?.();
     };
 
     const handleDelete = async () => {
         if (!contact) return;
-
-        await deleteContact.mutateAsync(contact.id);
-
+        await deleteMutation.mutateAsync(contact.id);
         onDeleteOpenChange(false);
         onSuccess?.();
     };
 
-    const renderFormFields = () => (
-        <div className="space-y-4 py-4">
-            <div className="space-y-2">
-                <label className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                    Name
-                </label>
-                <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter name..."
-                />
-            </div>
+    const renderFormDialog = (
+        mode: 'create' | 'edit',
+        open: boolean,
+        onOpenChange: (o: boolean) => void,
+        isPending: boolean
+    ) => {
+        const { color, accent, Icon, title, btn, loading } = DIALOG_STYLES[mode];
+        const desc = mode === 'edit' ? `Update details for ${contact?.name || ''}` : DIALOG_STYLES.create.desc;
 
-            <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-2">
-                    <label className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                        Month
-                    </label>
-                    <select
-                        value={month}
-                        onChange={(e) => setMonth(parseInt(e.target.value))}
-                        className="w-full px-3 py-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        {Array.from({ length: 12 }, (_, i) => (
-                            <option key={i + 1} value={i + 1}>
-                                {new Date(2000, i).toLocaleString('default', { month: 'short' })}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+        return (
+            <Dialog open={open} onOpenChange={onOpenChange}>
+                <DialogContent className="sm:max-w-md border-0 shadow-2xl">
+                    <div className={`absolute top-0 left-0 right-0 h-24 bg-gradient-to-br from-${color}-500/10 via-${accent}-500/10 to-cyan-500/10 rounded-t-lg`} />
+                    <DialogHeader className="relative pt-2">
+                        <div className="flex items-center gap-3">
+                            <div className={`flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-${color}-500 to-${accent}-600 text-white shadow-lg shadow-${color}-500/25`}>
+                                <Icon className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <DialogTitle className="text-xl">{title}</DialogTitle>
+                                <DialogDescription>{desc}</DialogDescription>
+                            </div>
+                        </div>
+                    </DialogHeader>
 
-                <div className="space-y-2">
-                    <label className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                        Day
-                    </label>
-                    <select
-                        value={day}
-                        onChange={(e) => setDay(parseInt(e.target.value))}
-                        className="w-full px-3 py-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                        {Array.from({ length: 31 }, (_, i) => (
-                            <option key={i + 1} value={i + 1}>
-                                {i + 1}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(d => handleSubmit(mode, d))} className="space-y-5 py-4">
+                            <FormField control={form.control} name="name" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="flex items-center gap-2">
+                                        <User className="h-4 w-4 text-muted-foreground" />Name
+                                    </FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Enter their name..." {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
 
-                <div className="space-y-2">
-                    <label className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                        Year (optional)
-                    </label>
-                    <input
-                        type="number"
-                        value={year}
-                        onChange={(e) => setYear(e.target.value)}
-                        placeholder="YYYY"
-                        min="1900"
-                        max={new Date().getFullYear()}
-                        className="w-full px-3 py-2 rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
-            </div>
-        </div>
-    );
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-sm font-medium">
+                                    <Cake className="h-4 w-4 text-muted-foreground" />Birthday Date
+                                </div>
+                                <div className="grid grid-cols-3 gap-3">
+                                    <FormField control={form.control} name="month" render={({ field }) => (
+                                        <FormItem>
+                                            <Select value={field.value.toString()} onValueChange={v => field.onChange(+v)}>
+                                                <FormControl>
+                                                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {MONTHS.map(m => (
+                                                        <SelectItem key={m.value} value={m.value.toString()}>{m.label}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-xs text-muted-foreground text-center">Month</p>
+                                        </FormItem>
+                                    )} />
+
+                                    <FormField control={form.control} name="day" render={({ field }) => (
+                                        <FormItem>
+                                            <Select value={field.value.toString()} onValueChange={v => field.onChange(+v)}>
+                                                <FormControl>
+                                                    <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {Array.from({ length: maxDays }, (_, i) => (
+                                                        <SelectItem key={i + 1} value={(i + 1).toString()}>{i + 1}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-xs text-muted-foreground text-center">Day</p>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+
+                                    <FormField control={form.control} name="year" render={({ field }) => (
+                                        <FormItem>
+                                            <FormControl>
+                                                <Input type="number" placeholder="YYYY" min="1900" max={new Date().getFullYear()} {...field} />
+                                            </FormControl>
+                                            <p className="text-xs text-muted-foreground text-center">Year (optional)</p>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                </div>
+                            </div>
+
+                            <FormField control={form.control} name="notes" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="flex items-center gap-2">
+                                        <StickyNote className="h-4 w-4 text-muted-foreground" />Notes
+                                        <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                                    </FormLabel>
+                                    <FormControl>
+                                        <Textarea rows={3} placeholder="Tastes, preferences, hobbies, gift ideas..." className="resize-none" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+
+                            <DialogFooter className="gap-2 pt-2">
+                                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    disabled={isPending || !form.formState.isValid}
+                                    className={`bg-gradient-to-r from-${color}-500 to-${accent}-600 hover:from-${color}-600 hover:to-${accent}-700 text-white shadow-lg shadow-${color}-500/25`}
+                                >
+                                    {isPending ? loading : btn}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                </DialogContent>
+            </Dialog>
+        );
+    };
 
     return (
         <>
-            {/* Create Dialog */}
-            <Dialog open={createOpen} onOpenChange={onCreateOpenChange}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Add New Contact</DialogTitle>
-                        <DialogDescription>
-                            Add a new birthday to remember
-                        </DialogDescription>
-                    </DialogHeader>
+            {renderFormDialog('create', createOpen, onCreateOpenChange, createMutation.isPending)}
+            {contact && renderFormDialog('edit', editOpen, onEditOpenChange, updateMutation.isPending)}
 
-                    {renderFormFields()}
-
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => onCreateOpenChange(false)}>
-                            Cancel
-                        </Button>
-                        <Button onClick={handleCreate} disabled={createContact.isPending || !name.trim()}>
-                            {createContact.isPending ? 'Creating...' : 'Add Contact'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Edit Dialog */}
-            {contact && (
-                <Dialog open={editOpen} onOpenChange={onEditOpenChange}>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Edit Contact</DialogTitle>
-                            <DialogDescription>
-                                Update the birthday information for {contact.name}
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        {renderFormFields()}
-
-                        <DialogFooter>
-                            <Button variant="outline" onClick={() => onEditOpenChange(false)}>
-                                Cancel
-                            </Button>
-                            <Button onClick={handleEdit} disabled={updateContact.isPending || !name.trim()}>
-                                {updateContact.isPending ? 'Saving...' : 'Save Changes'}
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            )}
-
-            {/* Delete Dialog */}
             {contact && (
                 <Dialog open={deleteOpen} onOpenChange={onDeleteOpenChange}>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Delete Contact</DialogTitle>
-                            <DialogDescription>
-                                Are you sure you want to delete {contact.name}? This action cannot be undone.
-                            </DialogDescription>
+                    <DialogContent className="sm:max-w-md border-0 shadow-2xl">
+                        <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-br from-red-500/10 via-rose-500/10 to-pink-500/10 rounded-t-lg" />
+                        <DialogHeader className="relative pt-2">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-lg shadow-red-500/25">
+                                    <AlertTriangle className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <DialogTitle className="text-xl">Remove Birthday</DialogTitle>
+                                    <DialogDescription>This action cannot be undone</DialogDescription>
+                                </div>
+                            </div>
                         </DialogHeader>
-
-                        <DialogFooter>
+                        <div className="py-6">
+                            <div className="flex items-center gap-4 p-4 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-100 dark:border-red-900/30">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-pink-600 text-lg font-bold text-white shadow-md flex-shrink-0">
+                                    {contact.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                    <p className="font-semibold text-zinc-900 dark:text-zinc-100">{contact.name}</p>
+                                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                                        {new Date(2000, contact.birthdayMonth - 1, contact.birthdayDay).toLocaleDateString('default', { month: 'long', day: 'numeric' })}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <DialogFooter className="gap-2">
                             <Button variant="outline" onClick={() => onDeleteOpenChange(false)}>
-                                Cancel
+                                Keep Birthday
                             </Button>
-                            <Button variant="destructive" onClick={handleDelete} disabled={deleteContact.isPending}>
-                                {deleteContact.isPending ? 'Deleting...' : 'Delete'}
+                            <Button
+                                variant="destructive"
+                                onClick={handleDelete}
+                                disabled={deleteMutation.isPending}
+                                className="shadow-lg shadow-red-500/25"
+                            >
+                                {deleteMutation.isPending ? 'Removing...' : 'Yes, Remove'}
                             </Button>
                         </DialogFooter>
                     </DialogContent>
@@ -250,4 +300,3 @@ export function ContactDialogs({
         </>
     );
 }
-

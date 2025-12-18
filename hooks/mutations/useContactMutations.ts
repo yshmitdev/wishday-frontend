@@ -7,6 +7,7 @@ export type CreateContactData = {
     birthdayMonth: number;
     birthdayDay: number;
     birthdayYear?: number | null;
+    notes?: string | null;
 };
 
 export type UpdateContactData = {
@@ -14,6 +15,7 @@ export type UpdateContactData = {
     birthdayMonth?: number;
     birthdayDay?: number;
     birthdayYear?: number | null;
+    notes?: string | null;
 };
 
 export const useCreateContact = () => {
