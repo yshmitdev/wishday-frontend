@@ -65,17 +65,17 @@ export const MonthCalendar = ({ month, monthColor, contacts, onBirthdayClick, on
                     <DropdownMenuTrigger asChild>
                         <button
                             type="button"
-                            className={`absolute inset-0 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-200 text-sm font-medium
+                            className={`absolute inset-0 flex flex-col items-center justify-center rounded-lg cursor-pointer transition-all duration-200 text-sm font-medium
                                 ${hasBirthdays
                                     ? 'bg-gradient-to-br from-rose-500 to-amber-500 hover:from-rose-400 hover:to-amber-400 text-white shadow-lg shadow-rose-500/25 scale-105'
                                     : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50'
                                 }
                                 ${isToday && !hasBirthdays
-                                    ? 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25'
+                                    ? 'ring-[3px] ring-emerald-500 dark:ring-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 font-bold'
                                     : ''
                                 }
                                 ${isToday && hasBirthdays
-                                    ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-white dark:ring-offset-zinc-900'
+                                    ? 'ring-[3px] ring-emerald-400 ring-offset-2 ring-offset-white dark:ring-offset-zinc-900 animate-pulse'
                                     : ''
                                 }
                             `}
@@ -86,6 +86,14 @@ export const MonthCalendar = ({ month, monthColor, contacts, onBirthdayClick, on
                                     <span className="absolute -top-1 -right-2 text-[8px]">🎂</span>
                                 )}
                             </span>
+                            {/* Today dot indicator - shows when today has no birthdays */}
+                            {isToday && !hasBirthdays && (
+                                <span className="absolute bottom-1 left-1/2 -translate-x-1/2 h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+                            )}
+                            {/* Today corner indicator - shows when today has birthdays */}
+                            {isToday && hasBirthdays && (
+                                <span className="absolute top-0 left-0 w-0 h-0 border-t-[12px] border-r-[12px] border-t-emerald-400 border-r-transparent rounded-tl-lg" />
+                            )}
                         </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="center" className="min-w-[180px] p-2">
