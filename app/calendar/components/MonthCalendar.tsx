@@ -131,26 +131,26 @@ export const MonthCalendar = ({ month, monthColor, contacts, onBirthdayClick, on
             {/* Month accent gradient */}
             <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${monthColor}`} />
 
-            <CardHeader className="pb-2 pt-4">
+            <CardHeader className="pb-1 pt-3 px-3">
                 <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg font-semibold">
+                    <CardTitle className="text-base font-semibold">
                         {month.toLocaleString('default', { month: 'long' })}
                     </CardTitle>
                     {monthBirthdays > 0 && (
-                        <span className={`inline-flex items-center gap-1 rounded-full bg-gradient-to-r ${monthColor} px-2.5 py-0.5 text-xs font-semibold text-white shadow-sm`}>
+                        <span className={`inline-flex items-center gap-1 rounded-full bg-gradient-to-r ${monthColor} px-2 py-0.5 text-xs font-semibold text-white shadow-sm`}>
                             <Cake className="h-3 w-3" />
                             {monthBirthdays}
                         </span>
                     )}
                 </div>
             </CardHeader>
-            <CardContent className="p-3 pt-0">
+            <CardContent className="p-2 pt-0">
                 <Calendar
                     value={month}
                     activeStartDate={month}
                     view="month"
                     tileContent={customTileContent}
-                    tileClassName='relative p-1.5 aspect-square'
+                    tileClassName='relative p-1 aspect-square'
                     className='calendar-custom [&_.react-calendar\_\_navigation]:hidden'
                 />
             </CardContent>
