@@ -13,6 +13,7 @@ import { UserSync } from "./UserSync";
 import Providers from "./providers";
 
 import Header from "../components/Header";
+import { AIAssistant } from "../components/AIAssistant";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -44,6 +45,7 @@ export default function RootLayout({
             <Header />
             <UserSync />
             {children}
+            <AIAssistant />
           </Providers>
         </body>
       </html>
