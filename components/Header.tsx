@@ -1,7 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import { UserButton, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { ModeToggle } from "@/components/mode-toggle";
+import { Logo } from "@/components/Logo";
 
 export default function Header() {
   return (
@@ -9,7 +9,7 @@ export default function Header() {
       <div className="container flex h-14 max-w-screen-2xl items-center justify-between px-4 mx-auto">
         <div className="mr-4 flex">
           <Link className="mr-6 flex items-center space-x-2" href="/">
-            <Image src="/logo.png" alt="WishDay Logo" width={128} height={128} className="rounded-md" />
+            <Logo width={128} height={128} alt="WishDay Logo" />
           </Link>
           <nav className="flex items-center gap-6 text-sm font-medium">
             {/* Add navigation items here if needed */}

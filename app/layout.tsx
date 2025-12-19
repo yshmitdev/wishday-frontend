@@ -14,6 +14,7 @@ import Providers from "./providers";
 
 import Header from "../components/Header";
 import { AIAssistant } from "../components/AIAssistant";
+import { Footer } from "../components/Footer";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,6 +46,7 @@ export default function RootLayout({
             <Header />
             <UserSync />
             {children}
+            <Footer />
             <AIAssistant />
           </Providers>
         </body>

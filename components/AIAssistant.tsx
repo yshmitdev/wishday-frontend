@@ -6,7 +6,7 @@ import { DefaultChatTransport } from 'ai';
 import { useAuth, SignedIn } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Bot, MessageSquare, Send, X, Sparkles } from 'lucide-react';
+import { Bot, MessageSquare, Send, X, Sparkles, RotateCcw } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -61,9 +61,14 @@ export function AIAssistant() {
         },
     }), [getToken]);
 
-    const { messages, sendMessage, status, error } = useChat({ transport });
+    const { messages, sendMessage, setMessages, status, error } = useChat({ transport });
+
+    const handleClearChat = () => {
+        setMessages([]);
+    };
 
     const isLoading = status === 'submitted' || status === 'streaming';
+    const isStreaming = status === 'streaming';
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -147,14 +152,42 @@ export function AIAssistant() {
             >
                 {/* Header */}
                 <div className="relative px-5 py-4 border-b border-border/50 bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
-                            <Bot className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 flex items-center justify-center">
+                                <Bot className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
                             <h3 className="font-semibold text-foreground">Wishday Assistant</h3>
-                            <p className="text-xs text-muted-foreground">Ask me anything about birthdays</p>
+                            {isStreaming ? (
+                                <p className="text-xs text-violet-500 flex items-center gap-1.5">
+                                    <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-500"></span>
+                                    </span>
+                                    Writing...
+                                </p>
+                            ) : (
+                                <p className="text-xs text-muted-foreground">Ask me anything about birthdays</p>
+                            )}
+                            </div>
                         </div>
+                        {messages.length > 0 && (
+                            <button
+                                onClick={handleClearChat}
+                                disabled={isLoading}
+                                className={cn(
+                                    'p-2 rounded-lg',
+                                    'text-muted-foreground hover:text-foreground',
+                                    'hover:bg-black/5 dark:hover:bg-white/5',
+                                    'transition-all duration-200',
+                                    'disabled:opacity-50 disabled:cursor-not-allowed'
+                                )}
+                                title="Clear conversation"
+                            >
+                                <RotateCcw className="w-4 h-4" />
+                            </button>
+                        )}
                     </div>
                     <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-violet-500/20 to-transparent rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
                 </div>
